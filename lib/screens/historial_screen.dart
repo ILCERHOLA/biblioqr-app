@@ -17,12 +17,107 @@ class _HistorialScreenState extends State<HistorialScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _verificarVencimientos();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _verificarVencimientos() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final ahora = DateTime.now();
+
+    debugPrint('=== Verificando vencimientos ===');
+    debugPrint('UserId: $userId');
+    debugPrint('Ahora: $ahora');
+
+    if (userId.isEmpty) {
+      debugPrint('ERROR: userId vacío');
+      return;
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('prestamos')
+          .where('usuarioId', isEqualTo: userId)
+          .get();
+
+      debugPrint('Total préstamos encontrados: ${snapshot.docs.length}');
+
+      final prestados = snapshot.docs.where((doc) {
+        final data = doc.data();
+        final estado = (data['estado'] ?? '').toString();
+        debugPrint('Doc: ${doc.id} | estado: $estado');
+        return estado.toLowerCase() == 'prestado';
+      }).toList();
+
+      debugPrint('Prestados: ${prestados.length}');
+
+      for (final doc in prestados) {
+        final data = doc.data();
+        final fechaDevolucion = data['fechaDevolucion'];
+        if (fechaDevolucion == null) {
+          debugPrint('Sin fecha: ${doc.id}');
+          continue;
+        }
+
+        final fecha = (fechaDevolucion as Timestamp).toDate();
+        debugPrint(
+          'Fecha devolución: $fecha | Venció: ${ahora.isAfter(fecha)}',
+        );
+
+        if (!ahora.isAfter(fecha)) continue;
+
+        debugPrint('Actualizando a Vencido: ${doc.id}');
+        await doc.reference.update({'estado': 'Vencido'});
+
+        final libroId = data['libroId']?.toString() ?? '';
+        final libroTitulo = data['libroTitulo']?.toString() ?? '';
+        bool actualizado = false;
+
+        if (libroId.length > 10 && !libroId.contains(' ')) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('libros')
+                .doc(libroId)
+                .update({'estado': 'Vencido'});
+            actualizado = true;
+            debugPrint('Libro actualizado por ID: $libroId');
+          } catch (_) {}
+        }
+
+        if (!actualizado && libroTitulo.isNotEmpty) {
+          var query = await FirebaseFirestore.instance
+              .collection('libros')
+              .where('titulo', isEqualTo: libroTitulo)
+              .limit(1)
+              .get();
+
+          if (query.docs.isEmpty) {
+            final capitalizado =
+                libroTitulo[0].toUpperCase() + libroTitulo.substring(1);
+            query = await FirebaseFirestore.instance
+                .collection('libros')
+                .where('titulo', isEqualTo: capitalizado)
+                .limit(1)
+                .get();
+          }
+
+          if (query.docs.isNotEmpty) {
+            await query.docs.first.reference.update({'estado': 'Vencido'});
+            debugPrint('Libro actualizado por título: $libroTitulo');
+          } else {
+            debugPrint('Libro NO encontrado: $libroTitulo');
+          }
+        }
+      }
+      debugPrint('=== Verificación completada ===');
+    } catch (e) {
+      debugPrint('Error verificando vencimientos: $e');
+    }
   }
 
   Color _colorEstado(String estado) {
@@ -57,6 +152,24 @@ class _HistorialScreenState extends State<HistorialScreen>
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
+  }
+
+  String _diasRestantes(dynamic timestamp) {
+    if (timestamp == null) return '';
+    final fecha = (timestamp as Timestamp).toDate();
+    final diff = fecha.difference(DateTime.now()).inDays;
+    if (diff > 0) return 'Vence en $diff día${diff == 1 ? '' : 's'}';
+    if (diff == 0) return '¡Vence hoy!';
+    return 'Venció hace ${diff.abs()} día${diff.abs() == 1 ? '' : 's'}';
+  }
+
+  Color _colorDias(dynamic timestamp) {
+    if (timestamp == null) return Colors.grey;
+    final fecha = (timestamp as Timestamp).toDate();
+    final diff = fecha.difference(DateTime.now()).inDays;
+    if (diff > 3) return const Color(0xFF2E7D32);
+    if (diff >= 0) return const Color(0xFFE65100);
+    return const Color(0xFFC62828);
   }
 
   Widget _buildLista(List<String> estados) {
@@ -131,6 +244,7 @@ class _HistorialScreenState extends State<HistorialScreen>
             final estado = data['estado'] ?? 'Prestado';
             final fechaDevolucion = data['fechaDevolucion'];
             final portadaUrl = data['portadaUrl'];
+            final esActivo = estados.contains('prestado');
 
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -149,7 +263,6 @@ class _HistorialScreenState extends State<HistorialScreen>
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    // Portada o placeholder
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: portadaUrl != null
@@ -158,13 +271,12 @@ class _HistorialScreenState extends State<HistorialScreen>
                               width: 52,
                               height: 68,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => _placeholder(),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _placeholder(),
                             )
                           : _placeholder(),
                     ),
                     const SizedBox(width: 14),
-
-                    // Info
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +307,7 @@ class _HistorialScreenState extends State<HistorialScreen>
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
                               const Icon(
@@ -213,11 +325,20 @@ class _HistorialScreenState extends State<HistorialScreen>
                               ),
                             ],
                           ),
+                          if (esActivo && fechaDevolucion != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _diasRestantes(fechaDevolucion),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _colorDias(fechaDevolucion),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-
-                    // Chip estado
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,

@@ -23,8 +23,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
   final _usuarioController = TextEditingController();
   final _libroController = TextEditingController();
 
-  // ─── Lógica sin cambios ───────────────────────────────────────────
-
   Future<void> programarRecordatorio(
     DateTime fechaDevolucion,
     String libroTitulo,
@@ -173,6 +171,7 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
       final idFinal = libroId ?? libro;
       final claveUnica = '${userId}_$idFinal';
 
+      // 1️⃣ Guardar préstamo
       await FirebaseFirestore.instance
           .collection('prestamos')
           .doc(claveUnica)
@@ -186,15 +185,67 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
             'estado': 'Prestado',
           }, SetOptions(merge: true));
 
+      // 2️⃣ Actualizar estado del libro + incrementar vecesPresado
       if (libroId != null) {
+        // Con QR: actualiza por ID directo
         await FirebaseFirestore.instance
             .collection('libros')
             .doc(libroId)
-            .update({'estado': 'Prestado', 'disponible': false});
+            .update({
+              'estado': 'Prestado',
+              'disponible': false,
+              'vecesPresado': FieldValue.increment(1),
+            });
+      } else {
+        // Sin QR: busca por título
+        final query = await FirebaseFirestore.instance
+            .collection('libros')
+            .where('titulo', isEqualTo: tituloFinal)
+            .limit(1)
+            .get();
+
+        // Intenta también con minúsculas si no encontró
+        final query2 = query.docs.isEmpty
+            ? await FirebaseFirestore.instance
+                  .collection('libros')
+                  .where('titulo', isEqualTo: tituloFinal.toLowerCase())
+                  .limit(1)
+                  .get()
+            : null;
+
+        final doc = query.docs.isNotEmpty
+            ? query.docs.first
+            : query2?.docs.isNotEmpty == true
+            ? query2!.docs.first
+            : null;
+
+        if (doc != null) {
+          await doc.reference.update({
+            'estado': 'Prestado',
+            'disponible': false,
+            'vecesPresado': FieldValue.increment(1),
+          });
+        }
       }
 
-      await programarRecordatorio(fechaDevolucion, tituloFinal);
-      _showSnackBar('Préstamo registrado y recordatorio programado');
+      // 3️⃣ Programar recordatorio — separado para no afectar el préstamo
+      try {
+        await programarRecordatorio(fechaDevolucion, tituloFinal);
+      } catch (e) {
+        debugPrint('Error programando notificación: $e');
+      }
+
+      _showSnackBar('Préstamo registrado correctamente');
+
+      // 4️⃣ Limpiar formulario
+      _usuarioController.clear();
+      _libroController.clear();
+      setState(() {
+        libroId = null;
+        libroTitulo = '';
+        fechaPrestamo = DateTime.now();
+        fechaDevolucion = DateTime.now().add(const Duration(days: 7));
+      });
     } catch (e) {
       _showSnackBar('Error al registrar el préstamo', isError: true);
     } finally {
@@ -214,18 +265,58 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
       final idFinal = libroId ?? libro;
       final claveUnica = '${userId}_$idFinal';
 
+      // 1️⃣ Actualizar estado del préstamo
       await FirebaseFirestore.instance
           .collection('prestamos')
           .doc(claveUnica)
           .update({'estado': 'Devuelto'});
 
+      // 2️⃣ Actualizar estado del libro
       if (libroId != null) {
         await FirebaseFirestore.instance
             .collection('libros')
             .doc(libroId)
             .update({'estado': 'Disponible', 'disponible': true});
+      } else {
+        // Sin QR: busca por título
+        final tituloLibro = _libroController.text.trim();
+        final query = await FirebaseFirestore.instance
+            .collection('libros')
+            .where('titulo', isEqualTo: tituloLibro)
+            .limit(1)
+            .get();
+
+        final query2 = query.docs.isEmpty
+            ? await FirebaseFirestore.instance
+                  .collection('libros')
+                  .where('titulo', isEqualTo: tituloLibro.toLowerCase())
+                  .limit(1)
+                  .get()
+            : null;
+
+        final doc = query.docs.isNotEmpty
+            ? query.docs.first
+            : query2?.docs.isNotEmpty == true
+            ? query2!.docs.first
+            : null;
+
+        if (doc != null) {
+          await doc.reference.update({
+            'estado': 'Disponible',
+            'disponible': true,
+          });
+        }
       }
+
       _showSnackBar('Libro devuelto y estado actualizado');
+
+      // 3️⃣ Limpiar formulario
+      _usuarioController.clear();
+      _libroController.clear();
+      setState(() {
+        libroId = null;
+        libroTitulo = '';
+      });
     } catch (e) {
       _showSnackBar('Error al registrar devolución', isError: true);
     } finally {
@@ -283,8 +374,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
     super.dispose();
   }
 
-  // ─── UI ──────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -303,7 +392,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Marco escáner QR
             Center(
               child: GestureDetector(
                 onTap: () => _scanQR(context),
@@ -392,7 +480,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Tarjeta de datos
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -409,7 +496,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Campo usuario
                   _inputField(
                     controller: _usuarioController,
                     icon: Icons.person_outline,
@@ -417,8 +503,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
                     hint: 'Nombre del usuario',
                   ),
                   const SizedBox(height: 16),
-
-                  // Campo libro
                   _inputField(
                     controller: _libroController,
                     icon: Icons.menu_book_outlined,
@@ -433,8 +517,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
                         : null,
                   ),
                   const Divider(height: 28),
-
-                  // Fecha préstamo
                   _dateRow(
                     icon: Icons.calendar_today_outlined,
                     label: 'Fecha de préstamo',
@@ -442,8 +524,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
                     onTap: () => _selectDate(context, false),
                   ),
                   const Divider(height: 28),
-
-                  // Fecha devolución
                   _dateRow(
                     icon: Icons.event_outlined,
                     label: 'Fecha de devolución',
@@ -456,7 +536,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Botón Confirmar préstamo
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -490,7 +569,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Botón Registrar devolución
             SizedBox(
               width: double.infinity,
               height: 52,

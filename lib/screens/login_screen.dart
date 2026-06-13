@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 40),
 
-                  // Logo y título
+                  // ✅ Logo real
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -81,20 +81,42 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.qr_code_2_rounded,
-                      size: 52,
-                      color: Color(0xFF1565C0),
+                    child: Image.asset(
+                      'assets/images/BiblioQR.png',
+                      width: 72,
+                      height: 72,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.qr_code_2_rounded,
+                        size: 52,
+                        color: Color(0xFF1565C0),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'BiblioQR',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
+
+                  // ✅ Texto estilo logo
+                  RichText(
+                    text: const TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Biblio',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'QR',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64B5F6),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -136,7 +158,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 28),
 
-                        // Campo correo
                         TextField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
@@ -171,7 +192,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Campo contraseña
                         TextField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
@@ -216,7 +236,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        // Mensaje de error
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 14),
                           Container(
@@ -255,7 +274,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 28),
 
-                        // Botón ingresar
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -294,7 +312,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Registro
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  intl: ^0.19.0  # ✅ versión estable para formatear fechas
+  intl: ^0.19.0
 
   # 🔹 Firebase y Firestore
   firebase_core: ^4.9.0
@@ -25,10 +25,10 @@ dependencies:
 
   # 🔹 QR y escaneo (AndroidX)
   qr_flutter: ^4.1.0
-  mobile_scanner: ^7.2.0  # ✅ paquete correcto para escaneo QR
+  mobile_scanner: ^7.2.0
 
   # 🔹 Manejo de zona horaria para notificaciones
-  timezone: ^0.11.0       # ✅ versión compatible con notificaciones
+  timezone: ^0.11.0
 
 dev_dependencies:
   flutter_test:
@@ -37,3 +37,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/

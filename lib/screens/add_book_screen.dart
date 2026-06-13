@@ -10,55 +10,286 @@ class AddBookScreen extends StatefulWidget {
 
 class _AddBookScreenState extends State<AddBookScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _tituloController = TextEditingController();
-  final TextEditingController _autorController = TextEditingController();
-  bool _disponible = true;
+  final _tituloController = TextEditingController();
+  final _autorController = TextEditingController();
+  final _portadaController = TextEditingController();
+  bool _isLoading = false;
 
   Future<void> _guardarLibro() async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
       await FirebaseFirestore.instance.collection('libros').add({
-        'titulo': _tituloController.text,
-        'autor': _autorController.text,
-        'disponible': _disponible,
+        'titulo': _tituloController.text.trim(),
+        'autor': _autorController.text.trim(),
+        'estado': 'Disponible',
+        'disponible': true,
+        'vecesPresado': 0,
+        if (_portadaController.text.trim().isNotEmpty)
+          'portadaUrl': _portadaController.text.trim(),
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Libro agregado correctamente')),
+        SnackBar(
+          content: const Text('Libro agregado correctamente'),
+          backgroundColor: const Color(0xFF1565C0),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
       );
       Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Error al agregar el libro'),
+          backgroundColor: const Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _autorController.dispose();
+    _portadaController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Agregar Libro')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: const Color(0xFFF4F6FB),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1565C0),
+        elevation: 0,
+        title: const Text(
+          'Agregar libro',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              TextFormField(
-                controller: _tituloController,
-                decoration: const InputDecoration(labelText: 'Título'),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Ingrese el título' : null,
+              // Ícono decorativo
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: Color(0xFF1565C0),
+                  size: 48,
+                ),
               ),
-              TextFormField(
-                controller: _autorController,
-                decoration: const InputDecoration(labelText: 'Autor'),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Ingrese el autor' : null,
+              const SizedBox(height: 24),
+
+              // Tarjeta del formulario
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Título
+                    TextFormField(
+                      controller: _tituloController,
+                      decoration: InputDecoration(
+                        labelText: 'Título del libro',
+                        hintText: 'Ej: Cien años de soledad',
+                        prefixIcon: const Icon(
+                          Icons.title,
+                          color: Color(0xFF1565C0),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF1565C0),
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FF),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Ingresa el título'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Autor
+                    TextFormField(
+                      controller: _autorController,
+                      decoration: InputDecoration(
+                        labelText: 'Autor',
+                        hintText: 'Ej: Gabriel García Márquez',
+                        prefixIcon: const Icon(
+                          Icons.person_outline,
+                          color: Color(0xFF1565C0),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF1565C0),
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FF),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Ingresa el autor'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // URL portada (opcional)
+                    TextFormField(
+                      controller: _portadaController,
+                      decoration: InputDecoration(
+                        labelText: 'URL de portada (opcional)',
+                        hintText: 'https://...',
+                        prefixIcon: const Icon(
+                          Icons.image_outlined,
+                          color: Color(0xFF1565C0),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE0E0E0),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF1565C0),
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F9FF),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Info estado automático
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: Color(0xFF2E7D32),
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'El libro se agrega como Disponible',
+                            style: TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              SwitchListTile(
-                title: const Text('Disponible'),
-                value: _disponible,
-                onChanged: (value) => setState(() => _disponible = value),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _guardarLibro,
-                child: const Text('Guardar'),
+              const SizedBox(height: 24),
+
+              // Botón guardar
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _guardarLibro,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 3,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Guardar libro',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
               ),
             ],
           ),

@@ -69,25 +69,30 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.qr_code_2_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
+            // ✅ Logo real de la app
+            Image.asset('assets/images/BiblioQR.png', width: 32, height: 32),
             const SizedBox(width: 10),
-            const Text(
-              'BiblioQR',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
+            // ✅ Texto con estilo del logo
+            RichText(
+              text: const TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Biblio',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'QR',
+                    style: TextStyle(
+                      color: Color(0xFF64B5F6),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -199,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Título + botón Escanear QR
+          // Título + botones
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
             child: Row(
@@ -213,25 +218,51 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Color(0xFF1A1A2E),
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/addBook'),
-                  icon: const Icon(Icons.qr_code_scanner, size: 16),
-                  label: const Text(
-                    'Escanear QR',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/prestamo'),
+                      icon: const Icon(Icons.qr_code_scanner, size: 16),
+                      label: const Text(
+                        'Escanear QR',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1565C0),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        elevation: 2,
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.pushNamed(context, '/addBook'),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text(
+                        'Agregar',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        elevation: 2,
+                      ),
                     ),
-                    elevation: 2,
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -242,163 +273,192 @@ class _HomeScreenState extends State<HomeScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('libros')
-                  .orderBy('titulo')
+                  .orderBy('vecesPresado', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return const Center(child: Text('Error al cargar libros'));
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('libros')
+                        .orderBy('titulo')
+                        .snapshots(),
+                    builder: (context, snapshot2) {
+                      if (snapshot2.hasError) {
+                        return const Center(
+                          child: Text('Error al cargar libros'),
+                        );
+                      }
+                      if (snapshot2.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF1565C0),
+                          ),
+                        );
+                      }
+                      return _buildLista(snapshot2.data!.docs);
+                    },
+                  );
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(color: Color(0xFF1565C0)),
                   );
                 }
-
-                final todos = snapshot.data!.docs;
-
-                if (todos.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.menu_book_rounded,
-                          size: 64,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No hay libros registrados',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final libros = todos.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final titulo = (data['titulo'] ?? '')
-                      .toString()
-                      .toLowerCase();
-                  final autor = (data['autor'] ?? '').toString().toLowerCase();
-                  final estado = (data['estado'] ?? '').toString();
-                  return (titulo.contains(_busqueda) ||
-                          autor.contains(_busqueda)) &&
-                      _coincideFiltro(estado);
-                }).toList();
-
-                if (libros.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search_off_rounded,
-                          size: 56,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Sin resultados',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  itemCount: libros.length,
-                  itemBuilder: (context, i) {
-                    final data = libros[i].data() as Map<String, dynamic>;
-                    final titulo = data['titulo'] ?? 'Sin título';
-                    final autor = data['autor'] ?? 'Autor desconocido';
-                    final estado = data['estado'] ?? 'disponible';
-                    final portadaUrl = data['portadaUrl'];
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: portadaUrl != null
-                              ? Image.network(
-                                  portadaUrl,
-                                  width: 46,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => _placeholder(),
-                                )
-                              : _placeholder(),
-                        ),
-                        title: Text(
-                          titulo,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Color(0xFF1A1A2E),
-                          ),
-                        ),
-                        subtitle: Text(
-                          autor,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _colorEstadoFondo(estado),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            estado[0].toUpperCase() + estado.substring(1),
-                            style: TextStyle(
-                              color: _colorEstado(estado),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                );
+                return _buildLista(snapshot.data!.docs);
               },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLista(List<QueryDocumentSnapshot> todos) {
+    if (todos.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu_book_rounded,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No hay libros registrados',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final libros = todos.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final titulo = (data['titulo'] ?? '').toString().toLowerCase();
+      final autor = (data['autor'] ?? '').toString().toLowerCase();
+      final estado = (data['estado'] ?? '').toString();
+      return (titulo.contains(_busqueda) || autor.contains(_busqueda)) &&
+          _coincideFiltro(estado);
+    }).toList();
+
+    if (libros.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 56,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Sin resultados',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      itemCount: libros.length,
+      itemBuilder: (context, i) {
+        final data = libros[i].data() as Map<String, dynamic>;
+        final titulo = data['titulo'] ?? 'Sin título';
+        final autor = data['autor'] ?? 'Autor desconocido';
+        final estado = data['estado'] ?? 'disponible';
+        final portadaUrl = data['portadaUrl'];
+        final vecesPresado = data['vecesPresado'] ?? 0;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: portadaUrl != null
+                  ? Image.network(
+                      portadaUrl,
+                      width: 46,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _placeholder(),
+                    )
+                  : _placeholder(),
+            ),
+            title: Text(
+              titulo,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Color(0xFF1A1A2E),
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  autor,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                if (vecesPresado > 0)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.trending_up,
+                        size: 12,
+                        color: Color(0xFF1565C0),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Prestado $vecesPresado ${vecesPresado == 1 ? 'vez' : 'veces'}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF1565C0),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _colorEstadoFondo(estado),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                estado[0].toUpperCase() + estado.substring(1),
+                style: TextStyle(
+                  color: _colorEstado(estado),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

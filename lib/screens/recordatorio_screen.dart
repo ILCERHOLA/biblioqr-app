@@ -2,12 +2,105 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../main.dart';
 
-class RecordatorioScreen extends StatelessWidget {
+class RecordatorioScreen extends StatefulWidget {
   const RecordatorioScreen({super.key});
 
-  Future<void> mostrarRecordatorio() async {
+  @override
+  State<RecordatorioScreen> createState() => _RecordatorioScreenState();
+}
+
+class _RecordatorioScreenState extends State<RecordatorioScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // ✅ Día 9: programar notificaciones reales al abrir la pantalla
+    _programarNotificacionesPendientes();
+  }
+
+  // ✅ Día 9: programa una notificación por cada préstamo próximo a vencer
+  Future<void> _programarNotificacionesPendientes() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('prestamos')
+          .where('usuarioId', isEqualTo: userId)
+          .where('estado', isEqualTo: 'Prestado')
+          .get();
+
+      // Cancelar notificaciones anteriores para reprogramar
+      await flutterLocalNotificationsPlugin.cancelAll();
+
+      int notifId = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final fechaDevolucion = data['fechaDevolucion'];
+        final titulo = data['libroTitulo'] ?? 'un libro';
+        if (fechaDevolucion == null) continue;
+
+        final fecha = (fechaDevolucion as Timestamp).toDate();
+        final fechaNotif = fecha.subtract(const Duration(days: 1));
+
+        // Solo programar si la fecha de notificación es futura
+        if (fechaNotif.isAfter(DateTime.now())) {
+          await _programarNotificacion(
+            id: notifId,
+            titulo: 'Recordatorio de devolución',
+            cuerpo: 'Recuerda devolver "$titulo" mañana.',
+            fecha: fechaNotif,
+          );
+          notifId++;
+        } else if (fecha.isAfter(DateTime.now())) {
+          // Si ya pasó el día anterior pero aún no venció → notificar hoy
+          await _mostrarNotificacionInmediata(
+            id: notifId,
+            titulo: '¡Devolución hoy!',
+            cuerpo: 'Debes devolver "$titulo" hoy.',
+          );
+          notifId++;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error programando notificaciones: $e');
+    }
+  }
+
+  Future<void> _programarNotificacion({
+    required int id,
+    required String titulo,
+    required String cuerpo,
+    required DateTime fecha,
+  }) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'recordatorio_channel',
+          'Recordatorios',
+          channelDescription: 'Notificaciones de devolución de libros',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id: id,
+      title: titulo,
+      body: cuerpo,
+      scheduledDate: tz.TZDateTime.from(fecha, tz.local),
+      notificationDetails: notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  Future<void> _mostrarNotificacionInmediata({
+    required int id,
+    required String titulo,
+    required String cuerpo,
+  }) async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'recordatorio_channel',
@@ -21,11 +114,31 @@ class RecordatorioScreen extends StatelessWidget {
     );
 
     await flutterLocalNotificationsPlugin.show(
-      id: 0,
-      title: 'Recordatorio',
-      body: 'No olvides devolver tu libro hoy',
+      id: id,
+      title: titulo,
+      body: cuerpo,
       notificationDetails: notificationDetails,
     );
+  }
+
+  Future<void> _probarNotificacion() async {
+    await _mostrarNotificacionInmediata(
+      id: 99,
+      titulo: 'Recordatorio de prueba',
+      cuerpo: 'No olvides devolver tus libros a tiempo.',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Notificación enviada'),
+          backgroundColor: const Color(0xFF1565C0),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   }
 
   String _formatFecha(dynamic timestamp) {
@@ -49,6 +162,27 @@ class RecordatorioScreen extends StatelessWidget {
     return diff >= 0 && diff <= 3;
   }
 
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 56,
+      height: 72,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Icon(
+        Icons.menu_book_rounded,
+        color: Color(0xFF1565C0),
+        size: 28,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -62,6 +196,28 @@ class RecordatorioScreen extends StatelessWidget {
           'Recordatorios',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          // ✅ Botón para reprogramar notificaciones manualmente
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Reprogramar notificaciones',
+            onPressed: () async {
+              await _programarNotificacionesPendientes();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Notificaciones actualizadas'),
+                    backgroundColor: const Color(0xFF1565C0),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -90,8 +246,8 @@ class RecordatorioScreen extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE8F5E9),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -116,7 +272,7 @@ class RecordatorioScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   OutlinedButton.icon(
-                    onPressed: mostrarRecordatorio,
+                    onPressed: _probarNotificacion,
                     icon: const Icon(
                       Icons.notifications_outlined,
                       color: Color(0xFF1565C0),
@@ -176,7 +332,6 @@ class RecordatorioScreen extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          // Portada
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: portadaUrl != null
@@ -185,19 +340,17 @@ class RecordatorioScreen extends StatelessWidget {
                                     width: 56,
                                     height: 72,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        _placeholder(),
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            _placeholder(),
                                   )
                                 : _placeholder(),
                           ),
                           const SizedBox(width: 14),
-
-                          // Info
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Badge vencido/próximo
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -280,8 +433,6 @@ class RecordatorioScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 14),
-
-                      // Botones
                       Row(
                         children: [
                           Expanded(
@@ -309,19 +460,26 @@ class RecordatorioScreen extends StatelessWidget {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () async {
-                                await mostrarRecordatorio();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text(
-                                      'Recordatorio pospuesto',
-                                    ),
-                                    backgroundColor: const Color(0xFF1565C0),
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
+                                await _mostrarNotificacionInmediata(
+                                  id: 98,
+                                  titulo: 'Recordatorio pospuesto',
+                                  cuerpo:
+                                      'No olvides devolver "$titulo" pronto.',
                                 );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Recordatorio pospuesto',
+                                      ),
+                                      backgroundColor: const Color(0xFF1565C0),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  );
+                                }
                               },
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.grey,
@@ -350,27 +508,6 @@ class RecordatorioScreen extends StatelessWidget {
             },
           );
         },
-      ),
-    );
-  }
-
-  String _capitalize(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1);
-  }
-
-  Widget _placeholder() {
-    return Container(
-      width: 56,
-      height: 72,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Icon(
-        Icons.menu_book_rounded,
-        color: Color(0xFF1565C0),
-        size: 28,
       ),
     );
   }
