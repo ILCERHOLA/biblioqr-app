@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class UsersScreen extends StatelessWidget {
-  const UsersScreen({super.key});
+class UsersPage extends StatelessWidget {
+  const UsersPage({super.key});
 
   Color _colorRol(String rol) {
     switch (rol.toLowerCase()) {
@@ -36,7 +36,7 @@ class UsersScreen extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
+      builder: (sheetContext) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -70,7 +70,11 @@ class UsersScreen extends StatelessWidget {
                       .collection('usuarios')
                       .doc(userId)
                       .update({'rol': rol});
-                  Navigator.pop(context);
+
+                  if (!sheetContext.mounted) return;
+                  Navigator.pop(sheetContext);
+
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Rol actualizado a "$rol"'),
@@ -196,7 +200,8 @@ class UsersScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      // ✅ withValues en lugar de withOpacity
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -210,8 +215,8 @@ class UsersScreen extends StatelessWidget {
                   leading: Container(
                     width: 46,
                     height: 46,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE3F2FD),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE3F2FD),
                       shape: BoxShape.circle,
                     ),
                     child: Center(

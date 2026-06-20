@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AddBookScreen extends StatefulWidget {
-  const AddBookScreen({super.key});
+class AddBookPage extends StatefulWidget {
+  const AddBookPage({super.key});
 
   @override
-  State<AddBookScreen> createState() => _AddBookScreenState();
+  State<AddBookPage> createState() => _AddBookPageState();
 }
 
-class _AddBookScreenState extends State<AddBookScreen> {
+class _AddBookPageState extends State<AddBookPage> {
   final _formKey = GlobalKey<FormState>();
   final _tituloController = TextEditingController();
   final _autorController = TextEditingController();
@@ -30,6 +30,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
           'portadaUrl': _portadaController.text.trim(),
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Libro agregado correctamente'),
@@ -42,6 +43,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
       );
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Error al agregar el libro'),
@@ -84,11 +86,10 @@ class _AddBookScreenState extends State<AddBookScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // Ícono decorativo
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE3F2FD),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -99,14 +100,14 @@ class _AddBookScreenState extends State<AddBookScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Tarjeta del formulario
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      // ✅ withValues en lugar de withOpacity
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -115,7 +116,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Título
                     TextFormField(
                       controller: _tituloController,
                       decoration: InputDecoration(
@@ -153,7 +153,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Autor
                     TextFormField(
                       controller: _autorController,
                       decoration: InputDecoration(
@@ -191,7 +190,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // URL portada (opcional)
                     TextFormField(
                       controller: _portadaController,
                       decoration: InputDecoration(
@@ -226,7 +224,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Info estado automático
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -259,7 +256,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Botón guardar
               SizedBox(
                 width: double.infinity,
                 height: 52,

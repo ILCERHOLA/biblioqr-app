@@ -5,22 +5,20 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../main.dart';
 
-class RecordatorioScreen extends StatefulWidget {
-  const RecordatorioScreen({super.key});
+class RecordatorioPage extends StatefulWidget {
+  const RecordatorioPage({super.key});
 
   @override
-  State<RecordatorioScreen> createState() => _RecordatorioScreenState();
+  State<RecordatorioPage> createState() => _RecordatorioPageState();
 }
 
-class _RecordatorioScreenState extends State<RecordatorioScreen> {
+class _RecordatorioPageState extends State<RecordatorioPage> {
   @override
   void initState() {
     super.initState();
-    // ✅ Día 9: programar notificaciones reales al abrir la pantalla
     _programarNotificacionesPendientes();
   }
 
-  // ✅ Día 9: programa una notificación por cada préstamo próximo a vencer
   Future<void> _programarNotificacionesPendientes() async {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -31,7 +29,6 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
           .where('estado', isEqualTo: 'Prestado')
           .get();
 
-      // Cancelar notificaciones anteriores para reprogramar
       await flutterLocalNotificationsPlugin.cancelAll();
 
       int notifId = 0;
@@ -44,7 +41,6 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
         final fecha = (fechaDevolucion as Timestamp).toDate();
         final fechaNotif = fecha.subtract(const Duration(days: 1));
 
-        // Solo programar si la fecha de notificación es futura
         if (fechaNotif.isAfter(DateTime.now())) {
           await _programarNotificacion(
             id: notifId,
@@ -54,7 +50,6 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
           );
           notifId++;
         } else if (fecha.isAfter(DateTime.now())) {
-          // Si ya pasó el día anterior pero aún no venció → notificar hoy
           await _mostrarNotificacionInmediata(
             id: notifId,
             titulo: '¡Devolución hoy!',
@@ -127,18 +122,15 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
       titulo: 'Recordatorio de prueba',
       cuerpo: 'No olvides devolver tus libros a tiempo.',
     );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Notificación enviada'),
-          backgroundColor: const Color(0xFF1565C0),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Notificación enviada'),
+        backgroundColor: const Color(0xFF1565C0),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   String _formatFecha(dynamic timestamp) {
@@ -197,24 +189,22 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
-          // ✅ Botón para reprogramar notificaciones manualmente
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Reprogramar notificaciones',
             onPressed: () async {
               await _programarNotificacionesPendientes();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Notificaciones actualizadas'),
-                    backgroundColor: const Color(0xFF1565C0),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Notificaciones actualizadas'),
+                  backgroundColor: const Color(0xFF1565C0),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                );
-              }
+                ),
+              );
             },
           ),
         ],
@@ -320,7 +310,8 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      // ✅ withValues en lugar de withOpacity
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -466,20 +457,19 @@ class _RecordatorioScreenState extends State<RecordatorioScreen> {
                                   cuerpo:
                                       'No olvides devolver "$titulo" pronto.',
                                 );
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                        'Recordatorio pospuesto',
-                                      ),
-                                      backgroundColor: const Color(0xFF1565C0),
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text(
+                                      'Recordatorio pospuesto',
                                     ),
-                                  );
-                                }
+                                    backgroundColor: const Color(0xFF1565C0),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                );
                               },
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.grey,

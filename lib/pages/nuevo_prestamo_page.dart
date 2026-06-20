@@ -6,14 +6,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../main.dart';
 
-class NuevoPrestamoScreen extends StatefulWidget {
-  const NuevoPrestamoScreen({super.key});
+class NuevoPrestamoPage extends StatefulWidget {
+  const NuevoPrestamoPage({super.key});
 
   @override
-  State<NuevoPrestamoScreen> createState() => _NuevoPrestamoScreenState();
+  State<NuevoPrestamoPage> createState() => _NuevoPrestamoPageState();
 }
 
-class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
+class _NuevoPrestamoPageState extends State<NuevoPrestamoPage> {
   DateTime fechaPrestamo = DateTime.now();
   DateTime fechaDevolucion = DateTime.now().add(const Duration(days: 7));
   String libroTitulo = '';
@@ -171,7 +171,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
       final idFinal = libroId ?? libro;
       final claveUnica = '${userId}_$idFinal';
 
-      // 1️⃣ Guardar préstamo
       await FirebaseFirestore.instance
           .collection('prestamos')
           .doc(claveUnica)
@@ -185,9 +184,7 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
             'estado': 'Prestado',
           }, SetOptions(merge: true));
 
-      // 2️⃣ Actualizar estado del libro + incrementar vecesPresado
       if (libroId != null) {
-        // Con QR: actualiza por ID directo
         await FirebaseFirestore.instance
             .collection('libros')
             .doc(libroId)
@@ -197,14 +194,12 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
               'vecesPresado': FieldValue.increment(1),
             });
       } else {
-        // Sin QR: busca por título
         final query = await FirebaseFirestore.instance
             .collection('libros')
             .where('titulo', isEqualTo: tituloFinal)
             .limit(1)
             .get();
 
-        // Intenta también con minúsculas si no encontró
         final query2 = query.docs.isEmpty
             ? await FirebaseFirestore.instance
                   .collection('libros')
@@ -228,7 +223,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
         }
       }
 
-      // 3️⃣ Programar recordatorio — separado para no afectar el préstamo
       try {
         await programarRecordatorio(fechaDevolucion, tituloFinal);
       } catch (e) {
@@ -237,7 +231,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
 
       _showSnackBar('Préstamo registrado correctamente');
 
-      // 4️⃣ Limpiar formulario
       _usuarioController.clear();
       _libroController.clear();
       setState(() {
@@ -265,20 +258,17 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
       final idFinal = libroId ?? libro;
       final claveUnica = '${userId}_$idFinal';
 
-      // 1️⃣ Actualizar estado del préstamo
       await FirebaseFirestore.instance
           .collection('prestamos')
           .doc(claveUnica)
           .update({'estado': 'Devuelto'});
 
-      // 2️⃣ Actualizar estado del libro
       if (libroId != null) {
         await FirebaseFirestore.instance
             .collection('libros')
             .doc(libroId)
             .update({'estado': 'Disponible', 'disponible': true});
       } else {
-        // Sin QR: busca por título
         final tituloLibro = _libroController.text.trim();
         final query = await FirebaseFirestore.instance
             .collection('libros')
@@ -310,7 +300,6 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
 
       _showSnackBar('Libro devuelto y estado actualizado');
 
-      // 3️⃣ Limpiar formulario
       _usuarioController.clear();
       _libroController.clear();
       setState(() {
@@ -409,7 +398,8 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        // ✅ withValues en lugar de withOpacity
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 16,
                         offset: const Offset(0, 4),
                       ),
@@ -486,7 +476,8 @@ class _NuevoPrestamoScreenState extends State<NuevoPrestamoScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    // ✅ withValues en lugar de withOpacity
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),

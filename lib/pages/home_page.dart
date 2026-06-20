@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/libro_card.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomePageState extends State<HomePage> {
   String _filtro = 'Todos';
   String _busqueda = '';
   final _searchController = TextEditingController();
@@ -19,32 +20,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'Prestados',
     'Vencidos',
   ];
-
-  Color _colorEstado(String estado) {
-    switch (estado.toLowerCase()) {
-      case 'disponible':
-        return const Color(0xFF2E7D32);
-      case 'prestado':
-        return const Color(0xFF1565C0);
-      case 'vencido':
-        return const Color(0xFFC62828);
-      default:
-        return Colors.grey;
-    }
-  }
-
-  Color _colorEstadoFondo(String estado) {
-    switch (estado.toLowerCase()) {
-      case 'disponible':
-        return const Color(0xFFE8F5E9);
-      case 'prestado':
-        return const Color(0xFFE3F2FD);
-      case 'vencido':
-        return const Color(0xFFFFEBEE);
-      default:
-        return Colors.grey.shade100;
-    }
-  }
 
   bool _coincideFiltro(String estado) {
     if (_filtro == 'Todos') return true;
@@ -69,10 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         title: Row(
           children: [
-            // ✅ Logo real de la app
             Image.asset('assets/images/BiblioQR.png', width: 32, height: 32),
             const SizedBox(width: 10),
-            // ✅ Texto con estilo del logo
             RichText(
               text: const TextSpan(
                 children: [
@@ -113,14 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             child: Column(
               children: [
-                // Buscador
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        // ✅ withValues en lugar de withOpacity
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -159,7 +132,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                // Filtros
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -268,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Lista desde Firestore
+          // Lista desde Firestore usando LibroCard
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -369,112 +341,14 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: libros.length,
       itemBuilder: (context, i) {
         final data = libros[i].data() as Map<String, dynamic>;
-        final titulo = data['titulo'] ?? 'Sin título';
-        final autor = data['autor'] ?? 'Autor desconocido';
-        final estado = data['estado'] ?? 'disponible';
-        final portadaUrl = data['portadaUrl'];
-        final vecesPresado = data['vecesPresado'] ?? 0;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: portadaUrl != null
-                  ? Image.network(
-                      portadaUrl,
-                      width: 46,
-                      height: 60,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _placeholder(),
-                    )
-                  : _placeholder(),
-            ),
-            title: Text(
-              titulo,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  autor,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                if (vecesPresado > 0)
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.trending_up,
-                        size: 12,
-                        color: Color(0xFF1565C0),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Prestado $vecesPresado ${vecesPresado == 1 ? 'vez' : 'veces'}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF1565C0),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _colorEstadoFondo(estado),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                estado[0].toUpperCase() + estado.substring(1),
-                style: TextStyle(
-                  color: _colorEstado(estado),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
+        return LibroCard(
+          titulo: data['titulo'] ?? 'Sin título',
+          autor: data['autor'] ?? 'Autor desconocido',
+          estado: data['estado'] ?? 'disponible',
+          portadaUrl: data['portadaUrl'],
+          vecesPresado: data['vecesPresado'] ?? 0,
         );
       },
-    );
-  }
-
-  Widget _placeholder() {
-    return Container(
-      width: 46,
-      height: 60,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Icon(
-        Icons.menu_book_rounded,
-        color: Color(0xFF1565C0),
-        size: 26,
-      ),
     );
   }
 }

@@ -2,16 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';
-
-// 🔹 Importar pantallas
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/add_book_screen.dart';
-import 'screens/recordatorio_screen.dart';
-import 'screens/main_navigation.dart';
-import 'screens/users_screen.dart';
-import 'screens/historial_screen.dart'; // ✅ pantalla de historial actualizada
-import 'screens/nuevo_prestamo_screen.dart';
+import 'common/my_routers.dart';
 
 // 🔹 Declarar el plugin de notificaciones
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -75,16 +66,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       initialRoute: '/login',
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/home': (context) => MainNavigation(),
-        '/addBook': (context) => const AddBookScreen(),
-        '/recordatorio': (context) => const RecordatorioScreen(),
-        '/usuarios': (context) => const UsersScreen(),
-        '/prestamo': (context) => const NuevoPrestamoScreen(),
-        '/historial': (context) => const HistorialScreen(), // ✅ actualizado
-      },
+      routes: MyRouters.routes,
     );
   }
 }
