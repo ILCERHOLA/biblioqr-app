@@ -337,6 +337,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     return ListView.builder(
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       itemCount: libros.length,
       itemBuilder: (context, i) {

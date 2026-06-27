@@ -184,6 +184,7 @@ class UsersPage extends StatelessWidget {
           }
 
           return ListView.builder(
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: usuarios.length,
             itemBuilder: (context, index) {

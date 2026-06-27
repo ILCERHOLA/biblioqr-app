@@ -11,6 +11,19 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 // 🔹 Clave global para navegación desde notificaciones
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+// ✅ Día 12: comportamiento de scroll sin efecto glow/rebote
+class NoGlowScrollBehavior extends ScrollBehavior {
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    // Elimina el efecto de brillo (glow) al llegar al final
+    return child;
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -65,6 +78,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
+      // ✅ Día 12: aplica el comportamiento sin glow a toda la app
+      scrollBehavior: NoGlowScrollBehavior(),
       initialRoute: '/login',
       routes: MyRouters.routes,
     );

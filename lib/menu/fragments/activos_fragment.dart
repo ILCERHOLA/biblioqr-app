@@ -31,10 +31,16 @@ class ActivosFragment extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.grey.shade300),
+                Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.grey.shade300,
+                ),
                 const SizedBox(height: 12),
-                const Text('Error al cargar el historial',
-                    style: TextStyle(color: Colors.grey)),
+                const Text(
+                  'Error al cargar el historial',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ],
             ),
           );
@@ -51,18 +57,23 @@ class ActivosFragment extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.history_toggle_off_rounded,
-                    size: 64, color: Colors.grey.shade200),
+                Icon(
+                  Icons.history_toggle_off_rounded,
+                  size: 64,
+                  color: Colors.grey.shade200,
+                ),
                 const SizedBox(height: 14),
-                Text('No hay préstamos activos',
-                    style: TextStyle(
-                        color: Colors.grey.shade400, fontSize: 15)),
+                Text(
+                  'No hay préstamos activos',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 15),
+                ),
               ],
             ),
           );
         }
 
         return ListView.builder(
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           itemCount: docs.length,
           itemBuilder: (context, i) {
