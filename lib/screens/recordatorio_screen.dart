@@ -164,7 +164,7 @@ class RecordatorioScreen extends StatelessWidget {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -185,7 +185,7 @@ class RecordatorioScreen extends StatelessWidget {
                                     width: 56,
                                     height: 72,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
+                                    errorBuilder: (_, _, _) =>
                                         _placeholder(),
                                   )
                                 : _placeholder(),
