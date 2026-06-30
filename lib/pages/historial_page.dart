@@ -69,6 +69,8 @@ class _HistorialPageState extends State<HistorialPage>
         }
 
         if (!actualizado && libroTitulo.isNotEmpty) {
+          final cap = libroTitulo[0].toUpperCase() + libroTitulo.substring(1);
+
           var query = await FirebaseFirestore.instance
               .collection('libros')
               .where('titulo', isEqualTo: libroTitulo)
@@ -76,7 +78,6 @@ class _HistorialPageState extends State<HistorialPage>
               .get();
 
           if (query.docs.isEmpty) {
-            final cap = libroTitulo[0].toUpperCase() + libroTitulo.substring(1);
             query = await FirebaseFirestore.instance
                 .collection('libros')
                 .where('titulo', isEqualTo: cap)
@@ -86,6 +87,20 @@ class _HistorialPageState extends State<HistorialPage>
 
           if (query.docs.isNotEmpty) {
             await query.docs.first.reference.update({'estado': 'Vencido'});
+          } else {
+            // ✅ Si el libro no existe en la colección 'libros',
+            // se crea automáticamente para que aparezca en el Catálogo
+            final usuario = data['usuarioNombre'] ?? 'Desconocido';
+            await FirebaseFirestore.instance.collection('libros').add({
+              'titulo': cap,
+              'autor': 'Sin autor',
+              'estado': 'Vencido',
+              'disponible': false,
+              'vecesPresado': 1,
+            });
+            debugPrint(
+              'Libro creado automáticamente: $cap (usuario: $usuario)',
+            );
           }
         }
       }
@@ -111,8 +126,10 @@ class _HistorialPageState extends State<HistorialPage>
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          labelStyle:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
           unselectedLabelStyle: const TextStyle(fontSize: 14),
           tabs: const [
             Tab(text: 'Activos'),
@@ -122,10 +139,7 @@ class _HistorialPageState extends State<HistorialPage>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          ActivosFragment(),
-          CompletadosFragment(),
-        ],
+        children: const [ActivosFragment(), CompletadosFragment()],
       ),
     );
   }

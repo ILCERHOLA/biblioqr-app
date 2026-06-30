@@ -1,8 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
 
-class UsersPage extends StatelessWidget {
+class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
+
+  @override
+  State<UsersPage> createState() => _UsersPageState();
+}
+
+class _UsersPageState extends State<UsersPage> {
+  bool _esAdmin = false;
+  bool _cargandoPermiso = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarPermiso();
+  }
+
+  Future<void> _verificarPermiso() async {
+    final esAdmin = await AuthService.esAdministrador();
+    if (mounted) {
+      setState(() {
+        _esAdmin = esAdmin;
+        _cargandoPermiso = false;
+      });
+    }
+  }
 
   Color _colorRol(String rol) {
     switch (rol.toLowerCase()) {
@@ -149,138 +174,213 @@ class UsersPage extends StatelessWidget {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text('Error al cargar usuarios'));
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
+      body: _cargandoPermiso
+          ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF1565C0)),
-            );
-          }
+            )
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Error al cargar usuarios'));
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF1565C0)),
+                  );
+                }
 
-          final usuarios = snapshot.data!.docs;
+                final usuarios = snapshot.data!.docs;
 
-          if (usuarios.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.group_outlined,
-                    size: 64,
-                    color: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No hay usuarios registrados',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            itemCount: usuarios.length,
-            itemBuilder: (context, index) {
-              final data = usuarios[index].data() as Map<String, dynamic>;
-              final userId = usuarios[index].id;
-              final nombre = data['nombre'] ?? 'Sin nombre';
-              final correo = data['correo'] ?? 'Sin correo';
-              final rol = data['rol'] ?? 'lector';
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      // ✅ withValues en lugar de withOpacity
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                if (usuarios.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.group_outlined,
+                          size: 64,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No hay usuarios registrados',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  leading: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE3F2FD),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        _iniciales(nombre),
-                        style: const TextStyle(
-                          color: Color(0xFF1565C0),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                  );
+                }
+
+                return Column(
+                  children: [
+                    // ✅ Aviso para usuarios sin permisos de administrador
+                    if (!_esAdmin)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF8E1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFFE082)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              color: Color(0xFFE65100),
+                              size: 18,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Solo un administrador puede cambiar roles',
+                                style: TextStyle(
+                                  color: Color(0xFFE65100),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  title: Text(
-                    nombre,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: Color(0xFF1A1A2E),
-                    ),
-                  ),
-                  subtitle: Text(
-                    correo,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  trailing: GestureDetector(
-                    onTap: () => _cambiarRol(context, userId, rol),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _colorRolFondo(rol),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _capitalize(rol),
-                            style: TextStyle(
-                              color: _colorRol(rol),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: ListView.builder(
+                        physics: const ClampingScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: usuarios.length,
+                        itemBuilder: (context, index) {
+                          final data =
+                              usuarios[index].data() as Map<String, dynamic>;
+                          final userId = usuarios[index].id;
+                          final nombre = data['nombre'] ?? 'Sin nombre';
+                          final correo = data['correo'] ?? 'Sin correo';
+                          final rol = data['rol'] ?? 'lector';
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.expand_more,
-                            size: 14,
-                            color: _colorRol(rol),
-                          ),
-                        ],
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              leading: Container(
+                                width: 46,
+                                height: 46,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFE3F2FD),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _iniciales(nombre),
+                                    style: const TextStyle(
+                                      color: Color(0xFF1565C0),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                nombre,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Color(0xFF1A1A2E),
+                                ),
+                              ),
+                              subtitle: Text(
+                                correo,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              // ✅ Solo clickeable si es administrador
+                              trailing: _esAdmin
+                                  ? GestureDetector(
+                                      onTap: () =>
+                                          _cambiarRol(context, userId, rol),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _colorRolFondo(rol),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              _capitalize(rol),
+                                              style: TextStyle(
+                                                color: _colorRol(rol),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.expand_more,
+                                              size: 14,
+                                              color: _colorRol(rol),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _colorRolFondo(rol),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        _capitalize(rol),
+                                        style: TextStyle(
+                                          color: _colorRol(rol),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                  ],
+                );
+              },
+            ),
     );
   }
 }

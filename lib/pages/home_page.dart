@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/libro_card.dart';
 import '../menu/my_drawer.dart';
+import '../services/auth_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,6 +15,7 @@ class _HomePageState extends State<HomePage> {
   String _filtro = 'Todos';
   String _busqueda = '';
   final _searchController = TextEditingController();
+  bool _esAdmin = false;
 
   final List<String> _filtros = [
     'Todos',
@@ -21,6 +23,17 @@ class _HomePageState extends State<HomePage> {
     'Prestados',
     'Vencidos',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarPermiso();
+  }
+
+  Future<void> _verificarPermiso() async {
+    final esAdmin = await AuthService.esAdministrador();
+    if (mounted) setState(() => _esAdmin = esAdmin);
+  }
 
   bool _coincideFiltro(String estado) {
     if (_filtro == 'Todos') return true;
@@ -216,26 +229,28 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.pushNamed(context, '/addBook'),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text(
-                        'Agregar',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
+                    if (_esAdmin)
+                      ElevatedButton.icon(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/addBook'),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Agregar',
+                          style: TextStyle(fontSize: 13),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: 2,
                         ),
-                        elevation: 2,
                       ),
-                    ),
                   ],
                 ),
               ],
