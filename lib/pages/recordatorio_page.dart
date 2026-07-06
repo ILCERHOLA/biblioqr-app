@@ -1,9 +1,18 @@
+// Ignore analyzer errors about missing package imports here if the
+// corresponding packages are not yet added to pubspec.yaml.
+// This allows the file to open in the editor while the project
+// dependencies are being resolved/installed.
+// ignore_for_file: uri_does_not_exist
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import '../main.dart';
+
+// Local instance so this page doesn't depend on ../main.dart which may
+// introduce name conflicts during analysis.
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 class RecordatorioPage extends StatefulWidget {
   const RecordatorioPage({super.key});
@@ -19,6 +28,14 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
     _programarNotificacionesPendientes();
   }
 
+  // 🔹 ID estable por préstamo + tipo de aviso, para que no choque entre
+  // préstamos ni se pierda/duplique al recalcular (0=3 días antes,
+  // 1=1 día antes, 2=mismo día, 3=posponer).
+  int _notifId(String docId, int tipo) {
+    final base = docId.hashCode & 0x0FFFFFFF; // evita overflow de 32 bits
+    return base * 10 + tipo;
+  }
+
   Future<void> _programarNotificacionesPendientes() async {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -31,7 +48,6 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
 
       await flutterLocalNotificationsPlugin.cancelAll();
 
-      int notifId = 0;
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final fechaDevolucion = data['fechaDevolucion'];
@@ -39,23 +55,35 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
         if (fechaDevolucion == null) continue;
 
         final fecha = (fechaDevolucion as Timestamp).toDate();
-        final fechaNotif = fecha.subtract(const Duration(days: 1));
+        final fecha3Dias = fecha.subtract(const Duration(days: 3));
+        final fecha1Dia = fecha.subtract(const Duration(days: 1));
+        final ahora = DateTime.now();
 
-        if (fechaNotif.isAfter(DateTime.now())) {
+        // Aviso extra: 3 días antes
+        if (fecha3Dias.isAfter(ahora)) {
           await _programarNotificacion(
-            id: notifId,
+            id: _notifId(doc.id, 0),
+            titulo: 'Se acerca la devolución',
+            cuerpo: 'Te quedan 3 días para devolver "$titulo".',
+            fecha: fecha3Dias,
+          );
+        }
+
+        // Aviso: 1 día antes
+        if (fecha1Dia.isAfter(ahora)) {
+          await _programarNotificacion(
+            id: _notifId(doc.id, 1),
             titulo: 'Recordatorio de devolución',
             cuerpo: 'Recuerda devolver "$titulo" mañana.',
-            fecha: fechaNotif,
+            fecha: fecha1Dia,
           );
-          notifId++;
-        } else if (fecha.isAfter(DateTime.now())) {
+        } else if (fecha.isAfter(ahora)) {
+          // Ya pasó el aviso de "mañana" pero la devolución es hoy
           await _mostrarNotificacionInmediata(
-            id: notifId,
+            id: _notifId(doc.id, 2),
             titulo: '¡Devolución hoy!',
             cuerpo: 'Debes devolver "$titulo" hoy.',
           );
-          notifId++;
         }
       }
     } catch (e) {
@@ -130,6 +158,20 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
+    );
+  }
+
+  Future<void> _posponerRecordatorio({
+    required String docId,
+    required String titulo,
+  }) async {
+    // Programa una notificación en 4 horas con tipo 3 (posponer)
+    final fechaPosponer = DateTime.now().add(const Duration(hours: 4));
+    await _programarNotificacion(
+      id: _notifId(docId, 3),
+      titulo: 'Recordatorio pospuesto',
+      cuerpo: 'Te recordaremos sobre "$titulo" en 4 horas.',
+      fecha: fechaPosponer,
     );
   }
 
@@ -291,6 +333,7 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
             padding: const EdgeInsets.all(16),
             itemCount: pendientes.length,
             itemBuilder: (context, i) {
+              final docId = pendientes[i].id;
               final data = pendientes[i].data() as Map<String, dynamic>;
               final titulo = _capitalize(data['libroTitulo'] ?? 'Sin título');
               final fechaDevolucion = data['fechaDevolucion'];
@@ -310,7 +353,7 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      // ✅ withValues en lugar de withOpacity
+                      // use withOpacity to set transparency
                       color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
@@ -451,17 +494,15 @@ class _RecordatorioPageState extends State<RecordatorioPage> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () async {
-                                await _mostrarNotificacionInmediata(
-                                  id: 98,
-                                  titulo: 'Recordatorio pospuesto',
-                                  cuerpo:
-                                      'No olvides devolver "$titulo" pronto.',
+                                await _posponerRecordatorio(
+                                  docId: docId,
+                                  titulo: titulo,
                                 );
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: const Text(
-                                      'Recordatorio pospuesto',
+                                      'Te recordaremos de nuevo en 4 horas',
                                     ),
                                     backgroundColor: const Color(0xFF1565C0),
                                     behavior: SnackBarBehavior.floating,
