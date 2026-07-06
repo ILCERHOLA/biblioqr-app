@@ -16,7 +16,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
-
     kotlinOptions {
         // 🔹 Kotlin también apunta a 17
         jvmTarget = "17"
