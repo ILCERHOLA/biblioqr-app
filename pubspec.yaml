@@ -29,6 +29,7 @@ dependencies:
 
   # 🔹 Manejo de zona horaria para notificaciones
   timezone: ^0.11.0       # ✅ versión compatible con notificaciones
+  flutter_application_1: ^0.0.2
 
 dev_dependencies:
   flutter_test:
